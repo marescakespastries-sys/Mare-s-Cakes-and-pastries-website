@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mare's Cakes & Pastries — Order Online</title>
+  <meta name="description" content="Order banana bread, cake loaves and more from Mare's Cakes & Pastries. Secure Paystack payment; WhatsApp order link appears after payment."/>
+  <!-- Tailwind for styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React (production) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel to allow inline JSX (works on GitHub Pages). For max performance you can prebuild later and remove this. -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="icon" href="https://res.cloudinary.com/dvl40rhin/image/upload/v1759081580/MARE_LOGO_ONLY_sjojzh.png"/>
+  <style>
+    :root{
+      --brand-primary:#5f1d2d;  /* wine */
+      --brand-accent:#ffb703;   /* butter */
+      --brand-bg:#fffaf5;
+    }
+    .text-zinc-800{ color: var(--brand-primary) !important; }
+    .bg-zinc-50{ background-color: var(--brand-bg) !important; }
+  </style>
+</head>
+<body class="bg-zinc-50 text-zinc-800">
+  <div id="root"></div>
+
+  <script type="text/babel" data-presets="react,env">
+    const { useState, useMemo } = React;
+
+    // ===== CONFIG =====
+    const BRAND = { name: "Mare's Cakes & Pastries", short: "Mare's", color: "#5f1d2d" };
+    const PAYMENT = {
+      paystackPublicKey: "pk_live_e6cab8c613057e6cc0c0a5f1c09d24b34fc01b34" // live
+    };
+    const BUSINESS = {
+      whatsappPhone: "2349065307788"
+    };
+    // Google Apps Script Web App URL (orders webhook)
+    const WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbwuNDLgTA1vWNZResox1KW88B1YZ_ksbd-P8Oki01y0tDnxXpriIFIXA2D5YFjTk4DR/exec";
+
+    const N = (n)=> `₦${(n??0).toLocaleString("en-NG")}`;
+
+    // ===== MENU with size variants =====
+    const SIZES = ["Mini","Medium","Regular"];
+
+    const ITEMS = [
+      // Banana Bread (images & prices from your list)
+      {id:"bb_classic", group:"Banana Bread", name:"Classic Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759079789/Classic_Banana_Bread_apwoe3.jpg", variants:{ Mini:1500, Medium:5500, Regular:8000 }},
+      {id:"bb_raisins", group:"Banana Bread", name:"Raisins Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759079885/Raisins_Banana_Bread_y8dyxt.jpg", variants:{ Mini:1700, Medium:6000, Regular:8800 }},
+      {id:"bb_choco", group:"Banana Bread", name:"Chocolate Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759079973/chocolate_banana_bread_ybedbi.jpg", variants:{ Mini:1700, Medium:5000, Regular:8400 }},
+      {id:"bb_nutty", group:"Banana Bread", name:"Nutty Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080017/Nutty_Banana_Bread_xe61cb.jpg", variants:{ Mini:2400, Medium:7600, Regular:10300 }},
+      {id:"bb_classic_ganache", group:"Banana Bread", name:"Classic × Ganache Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080095/Classic_Ganache_Banana_Bread_mhgqqq.jpg", variants:{ Mini:1700, Medium:6000, Regular:8800 }},
+      {id:"bb_choc_chips", group:"Banana Bread", name:"Chocolate Chips Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080154/Chocolate_Chips_Banana_Bread_begokb.jpg", variants:{ Mini:1700, Medium:6000, Regular:8400 }},
+      {id:"bb_coconut", group:"Banana Bread", name:"Coconut Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080217/Coconut_Banana_Bread_vjop89.jpg", variants:{ Mini:1800, Medium:6200, Regular:9000 }},
+      {id:"bb_oreo_choc", group:"Banana Bread", name:"Oreo × Chocolate Chips Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080265/Oreo_Chocolate_Chips_Banana_Bread_u4b0fq.jpg", variants:{ Mini:2300, Medium:7500, Regular:8000 }},
+      {id:"bb_oreo_delight", group:"Banana Bread", name:"Oreo Delight Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080328/Oreo_Delight_Banana_Bread_d3sa3n.jpg", variants:{ Mini:2000, Medium:6500, Regular:9000 }},
+      {id:"bb_baileys", group:"Banana Bread", name:"Baileys Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080402/Baileys_Banana_Bread_eqdbsw.jpg", variants:{ Mini:1900, Medium:6600, Regular:9000 }},
+      {id:"bb_baileys_coco", group:"Banana Bread", name:"Baileys × Coconut Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080449/Baileys_Coconut_Banana_Bread_pa0xoz.jpg", variants:{ Mini:2500, Medium:8000, Regular:10500 }},
+      {id:"bb_coco_choc_chips", group:"Banana Bread", name:"Coconut × Chocolate Chips Banana Bread", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080449/Baileys_Coconut_Banana_Bread_pa0xoz.jpg", variants:{ Mini:1900, Medium:6200, Regular:8400 }},
+
+      // Cake Loaves (images & prices from your list)
+      {id:"cl_choc", group:"Cake Loaf", name:"Chocolate Cake Loaf", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080618/Chocolate_Cake_Loaf_gl8vbi.jpg", variants:{ Mini:2000, Medium:4800, Regular:8200 }},
+      {id:"cl_redvelvet", group:"Cake Loaf", name:"Red Velvet Cake Loaf", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080697/Red_Velvet_Cake_Loaf_aripvz.jpg", variants:{ Mini:2200, Medium:5000, Regular:8500 }},
+      {id:"cl_darkchoc", group:"Cake Loaf", name:"Dark Chocolate Cake Loaf", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080759/Dark_Chocolate_Cake_Loaf_wt5o85.jpg", variants:{ Mini:2400, Medium:5500, Regular:9000 }},
+      {id:"cl_carrot", group:"Cake Loaf", name:"Carrot Cake Loaf", img:"https://res.cloudinary.com/dvl40rhin/image/upload/v1759080848/Carrot_Cake_Loaf_rovgf7.jpg", variants:{ Mini:null, Medium:5500, Regular:8400 }},
+    ];
+
+    const Section = ({ title, children, right }) => (
+      <section className="bg-white border border-zinc-200 rounded-2xl shadow-sm p-5 md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg md:text-xl font-semibold">{title}</h2>
+          {right}
+        </div>
+        {children}
+      </section>
+    );
+
+    const Qty = ({ value, onChange, min = 0 }) => (
+      <div className="inline-flex items-center rounded-xl border border-zinc-300 overflow-hidden">
+        <button className="px-3 py-1.5 hover:bg-zinc-50" onClick={() => onChange(Math.max(min, (value || 0) - 1))}>−</button>
+        <input className="w-14 text-center py-1.5 outline-none" type="number" min={min} value={value || 0} onChange={(e) => onChange(Math.max(min, Number(e.target.value)))} />
+        <button className="px-3 py-1.5 hover:bg-zinc-50" onClick={() => onChange((value || 0) + 1)}>＋</button>
+      </div>
+    );
+
+    function useCart(){
+      const [cart, setCart] = useState({});
+      const setQty = (key, entry) => {
+        setCart((c)=>{
+          const copy = {...c};
+          if (!entry || (entry.qty||0) <= 0) delete copy[key]; else copy[key] = entry;
+          return copy;
+        });
+      };
+      return { cart, setQty, setCart };
+    }
+
+    // Load Paystack inline script lazily
+    let __paystackScriptLoading;
+    function ensurePaystack(){
+      if (typeof window !== 'undefined' && window.PaystackPop) return Promise.resolve();
+      if (__paystackScriptLoading) return __paystackScriptLoading;
+      __paystackScriptLoading = new Promise((resolve, reject)=>{
+        const s = document.createElement('script');
+        s.src = 'https://js.paystack.co/v1/inline.js';
+        s.async = true;
+        s.onload = ()=> resolve();
+        s.onerror = ()=> reject(new Error('Failed to load Paystack'));
+        document.body.appendChild(s);
+      });
+      return __paystackScriptLoading;
+    }
+
+    const Header = () => (
+      <header className="sticky top-0 z-40 backdrop-blur bg-white/70 border-b border-zinc-200">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[var(--brand-accent)]/10 grid place-items-center overflow-hidden">
+              <img src="https://res.cloudinary.com/dvl40rhin/image/upload/v1759081580/MARE_LOGO_ONLY_sjojzh.png" alt="Mare's Cakes & Pastries logo" className="w-9 h-9 object-contain"/>
+            </div>
+            <div className="leading-tight">
+              <div className="text-xl font-bold" style={{color:BRAND.color}}>{BRAND.name}</div>
+              <div className="text-xs text-zinc-500">Freshly baked, made with love.</div>
+            </div>
+          </div>
+          <a href="#order" className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-xl text-white" style={{backgroundColor:BRAND.color}}>Order Now</a>
+        </div>
+      </header>
+    );
+
+    function App(){
+      // Toast helper
+      const [toast, setToast] = useState({ show:false, msg:"" });
+      const showToast = (msg)=>{ setToast({show:true,msg}); setTimeout(()=> setToast({show:false,msg:""}), 3000); };
+
+      async function sendOrderToWebhook(payload){
+        try{
+          if(!WEBHOOK_URL) return; // not configured
+          if (navigator.sendBeacon) {
+            const blob = new Blob([JSON.stringify(payload)], { type: 'text/plain;charset=utf-8' });
+            navigator.sendBeacon(WEBHOOK_URL, blob);
+          } else {
+            await fetch(WEBHOOK_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload),
+              mode: 'no-cors',
+              keepalive: true,
+            });
+          }
+          showToast('Order sent to Google Sheet');
+        }catch(err){ console.warn('Webhook failed:', err); showToast('Could not send to sheet'); }
+      }
+
+      const { cart, setQty, setCart } = useCart();
+      const [form, setForm] = useState({ name:"", phone:"", email:"", gender:"", delivery:"" });
+      const [selectedSize, setSelectedSize] = useState({}); // {itemId: 'Mini'|'Medium'|'Regular'}
+      const [whatsAfterPay, setWhatsAfterPay] = useState({ visible:false, link:"" });
+      const [isPaying, setIsPaying] = useState(false);
+
+      const lineTotal = (entry)=> (entry.price||0) * (entry.qty||0);
+      const subtotal = useMemo(()=> Object.values(cart).reduce((s, e)=> s + lineTotal(e), 0), [cart]);
+      const grandTotal = subtotal;
+
+      const reset = ()=>{ setCart({}); setForm({name:"", phone:"", email:"", gender:"", delivery:""}); setSelectedSize({}); setWhatsAfterPay({visible:false, link:""}); };
+
+      const getDefaultSize = (item)=> SIZES.find(sz => item.variants[sz]);
+      const getActiveSize = (item)=> selectedSize[item.id] || getDefaultSize(item);
+      const getPrice = (item, sz)=> item.variants[sz] || 0;
+
+      const cartKey = (item, sz)=> `${item.id}__${sz}`;
+      const cartName = (item, sz)=> `${item.name} (${sz})`;
+
+      const makeWhatsAppText = (paymentRef) => {
+        const lines = [
+          `*New Order — ${BRAND.name}*`,
+          `Name: ${form.name}`,
+          `Phone: ${form.phone}`,
+          form.email ? `Email: ${form.email}` : null,
+          form.gender ? `Gender: ${form.gender}` : null,
+          form.delivery ? `Delivery Location: ${form.delivery}` : null,
+          '', '*Items*',
+          ...Object.entries(cart).map(([key, it])=>`- ${it.name} x${it.qty} = ${N(lineTotal(it))}`),
+          '', `*Total:* ${N(grandTotal)}`,
+          paymentRef ? `Payment Ref: ${paymentRef}` : null
+        ].filter(Boolean);
+        return encodeURIComponent(lines.join("\n"));
+      };
+
+      const handlePaystack = async () => {
+        if (isPaying) return; // prevent double clicks
+        if (!form.name || !form.phone || !form.email || !form.delivery || !form.gender) return alert('Please enter your name, phone, email, gender and delivery location.');
+        if (grandTotal <= 0) return alert('Your cart is empty.');
+        try {
+          setIsPaying(true);
+          await ensurePaystack();
+          const amountKobo = Math.round(grandTotal * 100);
+          const handler = window.PaystackPop.setup({
+            key: PAYMENT.paystackPublicKey,
+            email: form.email,
+            amount: amountKobo,
+            currency: 'NGN',
+            metadata: { custom_fields: [
+              { display_name: 'Customer', variable_name: 'customer_name', value: form.name },
+              { display_name: 'Phone', variable_name: 'phone', value: form.phone },
+              { display_name: 'Gender', variable_name: 'gender', value: form.gender },
+              { display_name: 'Delivery', variable_name: 'delivery_location', value: form.delivery }
+            ]},
+            callback: (response) => {
+              const paymentRef = response.reference;
+              const items = Object.entries(cart).map(([key, it])=>({ name: it.name, qty: it.qty, unit_price: it.price, line_total: (it.price||0)*(it.qty||0) }));
+              const payload = {
+                provider: 'paystack',
+                payment_ref: paymentRef,
+                currency: 'NGN',
+                totals: { subtotal: subtotal, total: grandTotal },
+                customer: { name: form.name, phone: form.phone, email: form.email, gender: form.gender, delivery: form.delivery },
+                items,
+                business: { name: BRAND.name },
+                created_at: new Date().toISOString()
+              };
+              sendOrderToWebhook(payload);
+
+              const link = `https://wa.me/${BUSINESS.whatsappPhone}?text=${makeWhatsAppText(paymentRef)}`;
+              setWhatsAfterPay({ visible:true, link });
+              window.open(link, '_blank');
+              setIsPaying(false);
+            },
+            onClose: function(){ console.log('Paystack modal closed'); setIsPaying(false); }
+          });
+          handler.openIframe();
+        } catch (e){
+          setIsPaying(false);
+          alert('Could not start Paystack: '+ e.message);
+        }
+      };
+
+      const SizePills = ({ item }) => {
+        const active = getActiveSize(item);
+        return (
+          <div className="flex gap-1.5">
+            {SIZES.map(sz=>{
+              const available = !!item.variants[sz];
+              const isActive = active === sz;
+              return (
+                <button key={sz}
+                  className={`px-2.5 py-1 rounded-lg text-xs border ${isActive? 'border-zinc-900 font-semibold' : 'border-zinc-300'} ${available? '': 'opacity-40 cursor-not-allowed'}`}
+                  onClick={()=> available && setSelectedSize(s=>({...s, [item.id]: sz}))}
+                  disabled={!available}
+                >{sz}</button>
+              );
+            })}
+          </div>
+        );
+      };
+
+      const QtyForItem = ({ item }) => {
+        const sz = getActiveSize(item);
+        const key = cartKey(item, sz);
+        const price = getPrice(item, sz);
+        const qty = cart[key]?.qty || 0;
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-24 text-right font-semibold">{N(price)}</div>
+            <Qty value={qty} onChange={(q)=>{
+              const entry = q > 0 ? { name: cartName(item, sz), price, qty:q } : null;
+              setQty(key, entry);
+            }}/>
+          </div>
+        );
+      };
+
+      return (
+        <div className="min-h-screen bg-zinc-50 text-zinc-800">
+          <Header />
+
+          <main id="order" className="max-w-6xl mx-auto px-4 pb-20 grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <Section title="Menu" right={<span className="text-xs text-zinc-500">Choose size then set qty</span>}>
+                <div className="divide-y">
+                  {ITEMS.map((it)=> (
+                    <div key={it.id} className="py-4 flex items-center gap-4">
+                      <div className="w-20 h-20 flex-shrink-0 rounded-xl border border-zinc-200 overflow-hidden bg-zinc-100">
+                        {it.img ? <img src={it.img} alt={it.name} className="w-full h-full object-cover"/> : <div className="w-full h-full grid place-items-center text-xs text-zinc-400">No Image</div>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium">{it.name}</div>
+                        <div className="text-xs text-zinc-500 mb-1">{it.group}</div>
+                        <SizePills item={it} />
+                      </div>
+                      <QtyForItem item={it} />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+
+              <Section title="Customer">
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-sm text-zinc-600">Full Name</label>
+                    <input className="w-full rounded-xl border border-zinc-300 px-3 py-2" value={form.name} onChange={e=>setForm({...form, name:e.target.value})}/>
+                  </div>
+                  <div>
+                    <label className="text-sm text-zinc-600">Phone</label>
+                    <input className="w-full rounded-xl border border-zinc-300 px-3 py-2" value={form.phone} onChange={e=>setForm({...form, phone:e.target.value})}/>
+                  </div>
+                  <div>
+                    <label className="text-sm text-zinc-600">Email</label>
+                    <input type="email" className="w-full rounded-xl border border-zinc-300 px-3 py-2" value={form.email} onChange={e=>setForm({...form, email:e.target.value})}/>
+                  </div>
+                  <div>
+                    <label className="text-sm text-zinc-600">Gender</label>
+                    <select className="w-full rounded-xl border border-zinc-300 px-3 py-2 bg-white" value={form.gender} onChange={e=>setForm({...form, gender:e.target.value})}>
+                      <option value="">Select gender</option>
+                      <option>Female</option>
+                      <option>Male</option>
+                      <option>Prefer not to say</option>
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm text-zinc-600">Delivery Location / Address</label>
+                    <input className="w-full rounded-xl border border-zinc-300 px-3 py-2" placeholder="e.g., Yaba, Lagos — 24 Ajose Street" value={form.delivery} onChange={e=>setForm({...form, delivery:e.target.value})}/>
+                  </div>
+                </div>
+              </Section>
+            </div>
+
+            <div className="lg:col-span-1 space-y-6">
+              <Section title="Summary" right={<span className="text-xs text-zinc-500">VAT-inclusive</span>}>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between"><span>Items</span><span>{N(subtotal||0)}</span></div>
+                  <hr className="my-2"/>
+                  <div className="flex items-center justify-between font-semibold text-lg"><span>Total</span><span>{N(grandTotal||0)}</span></div>
+                  <div className="space-y-2 pt-2">
+                    <button onClick={handlePaystack} className="w-full py-3 rounded-2xl text-white font-semibold disabled:opacity-50" style={{backgroundColor:BRAND.color}} disabled={!form.name || !form.phone || !form.email || !form.gender || !form.delivery || grandTotal<=0 || isPaying}>
+                      {isPaying ? 'Opening Paystack…' : 'Pay with Paystack'}
+                    </button>
+                    <p className="text-xs text-zinc-500">After payment, a WhatsApp link will appear with your order, gender and delivery location included.</p>
+                  </div>
+                </div>
+              </Section>
+            </div>
+          </main>
+
+          {/* Toast */}
+          {toast.show && (
+            <div className="fixed bottom-4 right-4 bg-zinc-900 text-white text-sm px-4 py-2 rounded-xl shadow-lg">{toast.msg}</div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App/>);
+  </script>
+</body>
+</html>
